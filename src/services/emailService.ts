@@ -1,0 +1,117 @@
+import nodemailer from "nodemailer";
+
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST, // smtp.ionos.fr
+  port: Number(process.env.SMTP_PORT), // 465
+  secure: true,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
+
+type ProofAttachment = Express.Multer.File | { path: string; filename: string };
+
+const getProfessionalRecipient = () => {
+  const recipient = process.env.PROFESSIONAL_EMAIL || process.env.SMTP_USER;
+  if (!recipient) {
+    throw new Error("Aucun destinataire défini pour l'envoi d'email (PROFESSIONAL_EMAIL ou SMTP_USER manquant)");
+  }
+  return recipient;
+};
+
+export const sendContactEmail = async (
+  name: string,
+  email: string,
+  subject: string,
+  message: string,
+) => {
+  const recipient = getProfessionalRecipient();
+
+  const mailOptions = {
+    from: `"Site Web" <${process.env.SMTP_USER}>`,
+    to: recipient,
+    replyTo: email,
+    subject: `📩 Nouveau message: ${subject}`,
+    text: `Nom: ${name}\nEmail: ${email}\nSujet: ${subject}\n\nMessage:\n${message}`,
+    html: `
+      <h2>Nouveau message de contact</h2>
+      <p><strong>Nom:</strong> ${name}</p>
+      <p><strong>Email:</strong> ${email}</p>
+      <p><strong>Sujet:</strong> ${subject}</p>
+      <p><strong>Message:</strong></p>
+      <p>${message.replace(/\n/g, "<br>")}</p>
+    `,
+  };
+
+  await transporter.sendMail(mailOptions);
+};
+
+export const sendPaymentProofEmail = async (
+  payerEmail: string,
+  details: string,
+  file?: ProofAttachment,
+) => {
+  const recipient = getProfessionalRecipient();
+
+  const attachments = [] as Array<{ filename: string; content?: Buffer; path?: string }>;
+  if (file) {
+    if ("buffer" in file) {
+      attachments.push({ filename: file.originalname, content: file.buffer });
+    } else if (file.path) {
+      attachments.push({ filename: file.filename, path: file.path });
+    }
+  }
+
+  const mailOptions = {
+    from: `"Site Web" <${process.env.SMTP_USER}>`,
+    to: recipient,
+    subject: `📩 Nouvelle preuve de paiement reçue`,
+    text: `Email client: ${payerEmail}\nDétails: ${details}`,
+    html: `
+      <h2>Nouvelle preuve de paiement</h2>
+      <p><strong>Email client :</strong> ${payerEmail}</p>
+      <p><strong>Détails :</strong> ${details}</p>
+    `,
+    attachments: attachments.length ? attachments : undefined,
+  };
+
+  await transporter.sendMail(mailOptions);
+};
+
+export const sendOrderValidationEmail = async (
+  order: {
+    id: string;
+    customerName: string;
+    customerEmail: string;
+    customerPhone: string;
+    customerAddress: string;
+    customerCity: string;
+    customerPostalCode: string;
+    total: number;
+    status: string;
+  },
+  trackingCode: string,
+) => {
+  const professionalRecipient = getProfessionalRecipient();
+
+  const mailOptions = {
+    from: `"Site Web" <${process.env.SMTP_USER}>`,
+    to: order.customerEmail,
+    cc: professionalRecipient,
+    subject: `✅ Paiement validé - Suivi ${trackingCode}`,
+    text: `Bonjour ${order.customerName},\n\nVotre paiement a été validé.\nCode de suivi: ${trackingCode}\nCommande: ${order.id}\nMontant: ${order.total} €\n\nMerci pour votre confiance.`,
+    html: `
+      <h2>Votre paiement a été validé</h2>
+      <p>Bonjour ${order.customerName},</p>
+      <p>Votre paiement a bien été validé.</p>
+      <p><strong>Code de suivi :</strong> ${trackingCode}</p>
+      <p><strong>Commande :</strong> ${order.id}</p>
+      <p><strong>Montant :</strong> ${order.total} €</p>
+      <p><strong>Adresse :</strong> ${order.customerAddress}, ${order.customerCity}, ${order.customerPostalCode}</p>
+      <p>Merci pour votre confiance.</p>
+    `,
+  };
+
+  await transporter.sendMail(mailOptions);
+};
