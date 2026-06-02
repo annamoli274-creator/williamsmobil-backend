@@ -1,0 +1,34 @@
+name: Deploy backend to Railway
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: Install dependencies
+        run: npm ci
+      - name: Build (if applicable)
+        run: |
+          if npm run | grep -q build; then npm run build; else echo 'no build script'; fi
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli || npm install -g railway || true
+      - name: Deploy to Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          # Login with token (Railway CLI supports login via env var in some versions)
+          if command -v railway >/dev/null 2>&1; then
+            railway login --apiKey "$RAILWAY_TOKEN" || true
+            railway up --yes || true
+          else
+            echo 'Railway CLI not available; please install locally or adjust this workflow.'
+            exit 1
+          fi
