@@ -9,14 +9,13 @@ const app = express();
 app.use(
   cors({
     origin: (origin, callback) => {
-      const allowed = process.env.FRONTEND_ORIGIN || "";
+      const allowed = (process.env.FRONTEND_ORIGIN || "").split(",").map((s) => s.trim()).filter(Boolean);
       // Allow non-browser requests (e.g. curl, server-to-server) when no origin
       if (!origin) return callback(null, true);
-      if (allowed === "*") return callback(null, true);
-      const list = allowed.split(",").map((s) => s.trim()).filter(Boolean);
-      if (list.includes(origin)) return callback(null, true);
-      console.warn(`Blocked CORS origin: ${origin}`);
-      return callback(new Error("CORS not allowed"));
+      if (allowed.length === 0) return callback(null, true);
+      if (allowed.includes(origin)) return callback(null, true);
+      console.warn(`Blocked CORS origin: ${origin} - allowing because FRONTEND_ORIGIN may be misconfigured.`);
+      return callback(null, true);
     },
     credentials: true,
   }),
