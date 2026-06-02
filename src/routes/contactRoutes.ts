@@ -11,7 +11,10 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ error: "Tous les champs sont requis." });
     }
 
-    await sendContactEmail(name, email, subject, message, phone);
+    // Envoyer l'email en arrière-plan (fire-and-forget) pour ne pas bloquer la réponse
+    sendContactEmail(name, email, subject, message, phone).catch((err) => {
+      console.error("Erreur async sendContactEmail:", err);
+    });
 
     res.status(200).json({ message: "Votre message a été envoyé avec succès." });
   } catch (error) {
