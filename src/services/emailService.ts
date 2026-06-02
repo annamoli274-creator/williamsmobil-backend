@@ -56,6 +56,7 @@ export const sendContactEmail = async (
 
   try {
     await transporter.sendMail(mailOptions);
+    console.log(`✅ Email de contact envoyé à ${recipient} de la part de ${email}`);
   } catch (err) {
     console.error("Erreur sendContactEmail:", err);
     throw err;
