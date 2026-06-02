@@ -10,6 +10,16 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+export const verifyTransporter = async () => {
+  try {
+    await transporter.verify();
+    console.log("SMTP transporter verified");
+  } catch (err) {
+    console.error("SMTP transporter verification failed:", err);
+    throw err;
+  }
+};
+
 type ProofAttachment = Express.Multer.File | { path: string; filename: string };
 
 const getProfessionalRecipient = () => {
@@ -44,7 +54,12 @@ export const sendContactEmail = async (
     `,
   };
 
-  await transporter.sendMail(mailOptions);
+  try {
+    await transporter.sendMail(mailOptions);
+  } catch (err) {
+    console.error("Erreur sendContactEmail:", err);
+    throw err;
+  }
 };
 
 export const sendPaymentProofEmail = async (

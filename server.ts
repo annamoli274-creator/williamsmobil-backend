@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import cors from "cors";
+import { verifyTransporter } from "./src/services/emailService";
 
 const app = express();
 
@@ -81,6 +82,11 @@ const PORT = process.env.PORT || 5001;
     if (process.env.NODE_ENV !== "production") {
       const { syncModels } = require("./src/models/index");
       await syncModels();
+    }
+    try {
+      await verifyTransporter();
+    } catch (err) {
+      console.warn("SMTP verification failed at startup. Emails may not be sent until env vars are fixed.");
     }
     app.listen(PORT, () => console.log(`🚀 Backend listening on ${PORT}`));
   } catch (err) {
