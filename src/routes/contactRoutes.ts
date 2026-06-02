@@ -8,6 +8,7 @@ router.post("/", async (req, res) => {
     const { name, email, subject, message, phone } = req.body;
 
     if (!name || !email || !subject || !message) {
+      console.error("Missing required fields:", { name: !!name, email: !!email, subject: !!subject, message: !!message, phone: !!phone });
       return res.status(400).json({ error: "Tous les champs sont requis." });
     }
 
@@ -18,7 +19,7 @@ router.post("/", async (req, res) => {
 
     res.status(200).json({ message: "Votre message a été envoyé avec succès." });
   } catch (error) {
-    console.error("Erreur lors de l'envoi du message de contact:", error);
+    console.error("Erreur route contact:", error);
     res.status(500).json({ error: "Une erreur est survenue lors de l'envoi du message." });
   }
 });
