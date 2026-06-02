@@ -1,12 +1,26 @@
 import nodemailer from "nodemailer";
 
+// Build transporter with safer defaults and timeouts. Support STARTTLS (port 587)
+const smtpHost = process.env.SMTP_HOST;
+const smtpPort = Number(process.env.SMTP_PORT) || undefined;
+const smtpUser = process.env.SMTP_USER;
+const smtpPass = process.env.SMTP_PASS;
+const smtpSecureEnv = (process.env.SMTP_SECURE || "").toLowerCase();
+const smtpSecure = smtpSecureEnv === "true" || smtpPort === 465;
+
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST, // smtp.ionos.fr
-  port: Number(process.env.SMTP_PORT), // 465
-  secure: true,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
+  host: smtpHost,
+  port: smtpPort || (smtpSecure ? 465 : 587),
+  secure: smtpSecure,
+  auth: smtpUser && smtpPass ? { user: smtpUser, pass: smtpPass } : undefined,
+  pool: true,
+  connectionTimeout: 10000,
+  greetingTimeout: 5000,
+  socketTimeout: 10000,
+  requireTLS: !smtpSecure,
+  tls: {
+    // allow self-signed in some environments; set SMTP_TLS_REJECT_UNAUTHORIZED=false to disable
+    rejectUnauthorized: (process.env.SMTP_TLS_REJECT_UNAUTHORIZED || "true") === "true",
   },
 });
 
