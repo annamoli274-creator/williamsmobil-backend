@@ -293,6 +293,13 @@ export async function sendContactEmail(name: string, email: string, subject: str
 /**
  * Health helper to test email connectivity quickly (for monitoring).
  */
+export async function verifyTransporter(): Promise<void> {
+  const result = await emailHealthCheck();
+  if (!result.ok) {
+    throw new Error(result.detail || "Failed to verify email provider");
+  }
+}
+
 export async function emailHealthCheck(): Promise<{ ok: boolean; detail?: string }> {
   if (SKIP_EMAIL_SEND) return { ok: true, detail: "skip" };
   if (!resend) return { ok: false, detail: "RESEND_API_KEY missing" };
