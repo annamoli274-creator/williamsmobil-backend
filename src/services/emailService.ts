@@ -35,6 +35,7 @@ export const sendContactEmail = async (
   email: string,
   subject: string,
   message: string,
+  phone?: string,
 ) => {
   const recipient = getProfessionalRecipient();
 
@@ -43,11 +44,12 @@ export const sendContactEmail = async (
     to: recipient,
     replyTo: email,
     subject: `📩 Nouveau message: ${subject}`,
-    text: `Nom: ${name}\nEmail: ${email}\nSujet: ${subject}\n\nMessage:\n${message}`,
+    text: `Nom: ${name}\nEmail: ${email}\nTéléphone: ${phone || "Non fourni"}\nSujet: ${subject}\n\nMessage:\n${message}`,
     html: `
       <h2>Nouveau message de contact</h2>
       <p><strong>Nom:</strong> ${name}</p>
       <p><strong>Email:</strong> ${email}</p>
+      <p><strong>Téléphone:</strong> ${phone || "Non fourni"}</p>
       <p><strong>Sujet:</strong> ${subject}</p>
       <p><strong>Message:</strong></p>
       <p>${message.replace(/\n/g, "<br>")}</p>

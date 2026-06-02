@@ -5,13 +5,13 @@ const router = Router();
 
 router.post("/", async (req, res) => {
   try {
-    const { name, email, subject, message } = req.body;
+    const { name, email, subject, message, phone } = req.body;
 
     if (!name || !email || !subject || !message) {
       return res.status(400).json({ error: "Tous les champs sont requis." });
     }
 
-    await sendContactEmail(name, email, subject, message);
+    await sendContactEmail(name, email, subject, message, phone);
 
     res.status(200).json({ message: "Votre message a été envoyé avec succès." });
   } catch (error) {
