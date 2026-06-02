@@ -6,7 +6,21 @@ import { verifyTransporter } from "./src/services/emailService";
 
 const app = express();
 
-app.use(cors({ origin: process.env.FRONTEND_ORIGIN || "*" }));
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      const allowed = process.env.FRONTEND_ORIGIN || "";
+      // Allow non-browser requests (e.g. curl, server-to-server) when no origin
+      if (!origin) return callback(null, true);
+      if (allowed === "*") return callback(null, true);
+      const list = allowed.split(",").map((s) => s.trim()).filter(Boolean);
+      if (list.includes(origin)) return callback(null, true);
+      console.warn(`Blocked CORS origin: ${origin}`);
+      return callback(new Error("CORS not allowed"));
+    },
+    credentials: true,
+  }),
+);
 app.use(express.json());
 
 /* ── Inline smoke-test route ─────────────────────────────────────────────────
@@ -86,7 +100,9 @@ const PORT = process.env.PORT || 5001;
     try {
       await verifyTransporter();
     } catch (err) {
-      console.warn("SMTP verification failed at startup. Emails may not be sent until env vars are fixed.");
+      console.warn(
+        "SMTP verification failed at startup. Emails may not be sent until env vars are fixed.",
+      );
     }
     app.listen(PORT, () => console.log(`🚀 Backend listening on ${PORT}`));
   } catch (err) {
