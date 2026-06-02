@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import util from "util";
-import Resend from "resend";
+import { Resend } from "resend";
 
 const writeFile = util.promisify(fs.writeFile);
 const mkdir = util.promisify(fs.mkdir);
@@ -18,6 +18,15 @@ if (!RESEND_API_KEY && !SKIP_EMAIL_SEND) {
 }
 
 const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "object" && error !== null && "message" in error) {
+    const anyError = error as { message?: unknown };
+    if (typeof anyError.message === "string") return anyError.message;
+  }
+  return String(error);
+}
 
 type OrderItem = {
   id?: string;
@@ -90,9 +99,9 @@ async function sendWithResend(opts: SendOptions): Promise<void> {
       await Promise.race([sendPromise, timeoutPromise]);
       console.info("✅ Email sent via Resend", { to: opts.to, subject: opts.subject });
       return;
-    } catch (err) {
+    } catch (err: unknown) {
       lastError = err;
-      console.error(`Resend send failed (attempt ${attempt}):`, err?.message || err);
+      console.error(`Resend send failed (attempt ${attempt}):`, getErrorMessage(err));
       if (attempt <= RETRY_ATTEMPTS) {
         const backoff = 500 * attempt;
         await new Promise((res) => setTimeout(res, backoff));
@@ -104,11 +113,11 @@ async function sendWithResend(opts: SendOptions): Promise<void> {
   try {
     await persistFailedEmail(opts, lastError);
     await trySmtpFallback(opts, lastError);
-  } catch (fallbackErr) {
-    console.error("Fallback failed:", fallbackErr?.message || fallbackErr);
+  } catch (fallbackErr: unknown) {
+    console.error("Fallback failed:", getErrorMessage(fallbackErr));
   }
 
-  throw new Error(`Email send failed after ${RETRY_ATTEMPTS + 1} attempts: ${lastError?.message || lastError}`);
+  throw new Error(`Email send failed after ${RETRY_ATTEMPTS + 1} attempts: ${getErrorMessage(lastError)}`);
 }
 
 /**
@@ -132,8 +141,8 @@ async function persistFailedEmail(opts: SendOptions, error: any) {
     };
     await writeFile(full, JSON.stringify(payload, null, 2), "utf8");
     console.info("Saved failed email to", full);
-  } catch (err) {
-    console.error("Could not persist failed email:", err);
+} catch (err: unknown) {
+    console.error("Could not persist failed email:", getErrorMessage(err));
   }
 }
 
@@ -186,8 +195,8 @@ async function trySmtpFallback(opts: SendOptions, originalError: any) {
 
     const info = await transporter.sendMail(mailOptions);
     console.info("✅ Email sent via SMTP fallback:", info?.messageId || info);
-  } catch (err) {
-    console.error("SMTP fallback failed:", err?.message || err);
+  } catch (err: unknown) {
+    console.error("SMTP fallback failed:", getErrorMessage(err));
     throw err;
   }
 }
@@ -313,8 +322,8 @@ export async function emailHealthCheck(): Promise<{ ok: boolean; detail?: string
       html: "<div>Health check</div>",
     });
     return { ok: true };
-  } catch (err: any) {
-    console.error("Email health check failed:", err?.message || err);
-    return { ok: false, detail: String(err?.message || err) };
+  } catch (err: unknown) {
+    console.error("Email health check failed:", getErrorMessage(err));
+    return { ok: false, detail: getErrorMessage(err) };
   }
 }
