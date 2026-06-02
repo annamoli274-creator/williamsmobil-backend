@@ -33,7 +33,19 @@ app.use(
     credentials: true,
   }),
 );
-app.use(express.json());
+// Parse JSON and keep raw body for diagnostics on parse errors
+app.use(
+  express.json({
+    limit: "1mb",
+    verify: (req, _res, buf) => {
+      try {
+        (req as any).rawBody = buf.toString();
+      } catch (e) {
+        (req as any).rawBody = undefined;
+      }
+    },
+  }),
+);
 
 /* ── Inline smoke-test route ─────────────────────────────────────────────────
    Hit GET /api/test to confirm Express routing is alive independently of any
@@ -85,6 +97,17 @@ try {
 /* ── Health check ────────────────────────────────────────────────────────── */
 app.get("/health", (_req: Request, res: Response) => {
   res.json({ status: "ok" });
+});
+
+/* ── JSON parse error handler ─────────────────────────────────────────────────
+   Catch and log malformed JSON payloads so we can return a clearer error.    */
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  if (err instanceof SyntaxError && "body" in err) {
+    console.error("JSON parse error:", err.message);
+    console.error("Raw body:", (req as any).rawBody);
+    return res.status(400).json({ error: "Invalid JSON payload" });
+  }
+  return next(err);
 });
 
 /* ── Catch-all 404 handler ───────────────────────────────────────────────────
