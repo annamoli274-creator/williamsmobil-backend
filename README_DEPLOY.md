@@ -31,5 +31,5 @@ npm run start
 ```
 
 Notes:
-- Railway fournit l'URL publique à utiliser comme `BACKEND_URL` dans le frontend.
+- Railway fournit l'URL publique à utiliser comme `NEXT_PUBLIC_BACKEND_URL` dans le frontend (le préfixe `NEXT_PUBLIC_` est requis par Next.js pour exposer la variable côté client/serveur en production).
 - Sur Railway, définis la variable `FRONTEND_ORIGIN` pour autoriser CORS depuis Vercel.
