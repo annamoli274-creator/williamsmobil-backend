@@ -51,6 +51,7 @@ type SendOptions = {
   html: string;
   attachments?: { name: string; data: string; type?: string }[]; // data = base64
   text?: string;
+  cc?: string | string[];
 };
 
 /**
@@ -80,6 +81,10 @@ async function sendWithResend(opts: SendOptions): Promise<void> {
         subject: opts.subject,
         html: opts.html,
       };
+
+      if (opts.cc) {
+        payload.cc = opts.cc;
+      }
 
       if (opts.attachments && opts.attachments.length) {
         // Resend expects attachment data as base64 strings
@@ -288,6 +293,138 @@ export async function sendPaymentFailureEmail(to: string, orderId: string, reaso
   const subject = `Échec de paiement — commande #${orderId}`;
   const html = paymentFailureHtml(orderId, reason);
   await sendWithResend({ to, subject, html });
+}
+
+function getProfessionalRecipient(): string {
+  return process.env.ADMIN_EMAIL || FROM_EMAIL;
+}
+
+function paymentProofHtml(payerEmail: string, details: string): string {
+  return `
+    <html>
+      <body>
+        <h2>Nouvelle preuve de paiement reçue</h2>
+        <p><strong>Email client :</strong> ${escapeHtml(payerEmail)}</p>
+        <p><strong>Détails :</strong></p>
+        <pre>${escapeHtml(details)}</pre>
+      </body>
+    </html>
+  `;
+}
+
+function orderValidationHtml(order: Order, trackingCode: string): string {
+  return `
+    <html>
+      <body>
+        <h2>Votre paiement a été validé</h2>
+        <p>Bonjour ${escapeHtml(order.customerName || "")},</p>
+        <p>Votre commande <strong>#${escapeHtml(order.id)}</strong> a bien été validée.</p>
+        <p><strong>Code de suivi :</strong> ${escapeHtml(trackingCode)}</p>
+        <p><strong>Montant :</strong> ${escapeHtml(String(order.total))} ${escapeHtml(order.currency || "")}</p>
+        <p>Adresse : ${escapeHtml(order.customerAddress || "")}, ${escapeHtml(order.customerCity || "")}</p>
+        <p>Merci pour votre confiance.</p>
+      </body>
+    </html>
+  `;
+}
+
+export async function sendPaymentProofEmail(
+  payerEmail: string,
+  details: string,
+  file?: { originalname?: string; buffer?: Buffer; mimetype?: string },
+): Promise<void> {
+  const to = getProfessionalRecipient();
+  const subject = `Nouvelle preuve de paiement reçue`;
+  const html = paymentProofHtml(payerEmail, details);
+  const text = `Email client: ${payerEmail}\nDétails:\n${details}`;
+
+  const attachments = file?.buffer
+    ? [
+        {
+          name: file.originalname || "payment-proof",
+          data: file.buffer.toString("base64"),
+          type: file.mimetype || "application/octet-stream",
+        },
+      ]
+    : undefined;
+
+  await sendWithResend({ to, subject, html, text, attachments });
+}
+
+export async function sendOrderValidationEmail(order: Order, trackingCode: string): Promise<void> {
+  const to = order.customerEmail || FROM_EMAIL;
+  const professionalRecipient = getProfessionalRecipient();
+  const subject = `Paiement validé - commande #${order.id}`;
+  const html = orderValidationHtml(order, trackingCode);
+  const text = `Bonjour ${order.customerName || ""},\nVotre commande #${order.id} a été validée. Code de suivi: ${trackingCode}`;
+
+  await sendWithResend({
+    to,
+    cc: professionalRecipient,
+    subject,
+    html,
+    text,
+  });
+}
+
+export async function sendNewOrderAdminEmail(
+  order: Order,
+  paymentMethod: string,
+  items: any[]
+): Promise<void> {
+  const to = getProfessionalRecipient();
+  const subject = `Nouvelle commande reçue #${order.id}`;
+
+  const itemsListHtml = items
+    .map(
+      (item) =>
+        `<li><strong>${escapeHtml(item.name)}</strong> (x${item.quantity}) - €${(
+          Number(item.price || item.unit_price) * (item.quantity || 1)
+        ).toFixed(2)}</li>`
+    )
+    .join("");
+
+  const html = `
+    <html>
+      <body>
+        <h2>Nouvelle commande reçue — #${escapeHtml(order.id)}</h2>
+        <p>Une nouvelle commande a été passée sur le site.</p>
+        
+        <h3>Informations client :</h3>
+        <ul>
+          <li><strong>Nom complet :</strong> ${escapeHtml(order.customerName || "")}</li>
+          <li><strong>Adresse e-mail :</strong> ${escapeHtml(order.customerEmail || "")}</li>
+          <li><strong>Téléphone :</strong> ${escapeHtml(order.customerPhone || "")}</li>
+          <li><strong>Adresse de livraison :</strong> ${escapeHtml(order.customerAddress || "")}</li>
+          <li><strong>Ville :</strong> ${escapeHtml(order.customerCity || "")}</li>
+          <li><strong>Code postal :</strong> ${escapeHtml(order.customerPostalCode || "")}</li>
+        </ul>
+
+        <h3>Détails du paiement :</h3>
+        <ul>
+          <li><strong>Mode de paiement :</strong> ${escapeHtml(paymentMethod)}</li>
+          <li><strong>Montant Total :</strong> €${Number(order.total).toFixed(2)}</li>
+        </ul>
+
+        <h3>Produits commandés :</h3>
+        <ul>
+          ${itemsListHtml}
+        </ul>
+      </body>
+    </html>
+  `;
+
+  const text = `
+    Nouvelle commande #${order.id}
+    Client: ${order.customerName}
+    Email: ${order.customerEmail}
+    Téléphone: ${order.customerPhone}
+    Adresse: ${order.customerAddress}, ${order.customerCity} (${order.customerPostalCode})
+    Mode de paiement: ${paymentMethod}
+    Montant total: €${order.total}
+  `;
+
+  await sendWithResend({ to, subject, html, text });
 }
 
 /**

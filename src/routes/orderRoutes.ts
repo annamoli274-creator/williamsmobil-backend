@@ -7,6 +7,7 @@ import Payment from "../models/Payment";
 import {
   sendOrderValidationEmail,
   sendPaymentProofEmail,
+  sendNewOrderAdminEmail,
 } from "../services/emailService";
 
 const router = Router();
@@ -88,6 +89,24 @@ router.post("/", upload.single("proofFile"), async (req, res) => {
       providerResponse: paypalEmail ? { paypalEmail } : null,
       proofFilePath: req.file ? req.file.originalname : null,
     });
+
+    let parsedItems = [];
+    try {
+      if (items) {
+        parsedItems = JSON.parse(items);
+      }
+    } catch (e) {
+      console.warn("Could not parse items for admin email", e);
+    }
+
+    try {
+      await sendNewOrderAdminEmail(order, paymentMethod, parsedItems);
+    } catch (mailError) {
+      console.error(
+        "Erreur lors de l'envoi de la notification de commande à l'admin :",
+        mailError,
+      );
+    }
 
     if (req.file) {
       try {
