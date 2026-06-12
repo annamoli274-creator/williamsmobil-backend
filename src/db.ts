@@ -30,7 +30,9 @@ const sequelize = new Sequelize(DATABASE_URL, {
     console.log("✅ Connexion MySQL réussie !");
   } catch (error) {
     console.error("❌ Erreur connexion DB :", error);
-    process.exit(1); // stop si DB KO
+    if (process.env.NODE_ENV !== "production") {
+      process.exit(1); // stop si DB KO en local/dev
+    }
   }
 })();
 

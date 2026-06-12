@@ -126,11 +126,14 @@ const PORT = process.env.PORT || 5001;
 
 (async () => {
   try {
-    // syncModels is intentionally skipped in production to avoid blocking
-    // startup on a DB connection that may not be ready yet.
-    if (process.env.NODE_ENV !== "production") {
+    try {
       const { syncModels } = require("./src/models/index");
       await syncModels();
+    } catch (syncErr) {
+      console.error("⚠️ Failure running database models sync:", syncErr);
+      if (process.env.NODE_ENV !== "production") {
+        throw syncErr; // rethrow in dev to fail fast
+      }
     }
     const skipSmtp = (process.env.SKIP_SMTP_VERIFY || "").toLowerCase() === "true";
     if (skipSmtp) {
